@@ -1,3 +1,4 @@
+Link: https://lbuaya.github.io/Sample-Pag-Ibig-Naga-Alimbukad/
 Linked Google Sheet
 
 Receipt submissions are automatically added here: Google Sheet: https://docs.google.com/spreadsheets/d/1zd0gMCKXyFzaOGRcCtQAlCtjRi3ayLiN7UhbmGhDAU0/edit?gid=0#gid=0
