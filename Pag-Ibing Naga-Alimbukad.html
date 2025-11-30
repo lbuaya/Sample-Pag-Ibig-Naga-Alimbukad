@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Pag-Ibing Naga Alimbukad - Receipt Generator</title>
+<style>
+  :root { --brand:#9F2C2C; --muted:#D394A6; --dark:#0F0F0F; }
+  body { font-family:"Times New Roman", Georgia, serif; margin:0; background:#E5E5E5; color:#0F0F0F; }
+  .wrap { display:flex; gap:20px; padding:18px; box-sizing:border-box; align-items:flex-start; }
+  .ui { width:360px; background:#F7C7D3; border-radius:8px; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,.08); height:calc(100vh - 40px); overflow:auto; box-sizing:border-box; }
+  .ui h2 { margin:0 0 10px 0; color:var(--brand); font-size:18px; }
+  label { display:block; margin-top:10px; font-size:13px; color:var(--muted); }
+  input[type="text"], input[type="date"], input[type="number"], select {
+    width:100%; padding:8px 10px; margin-top:6px; box-sizing:border-box;
+    border:1px solid #D394A6; border-radius:4px; font-size:14px;
+  }
+  .items { margin-top:12px; }
+  .item-row { display:flex; gap:6px; margin-top:8px; align-items:center; }
+  .item-row input { font-size:13px; }
+  .item-row .desc { flex:1; }
+  .item-row .qty { width:56px; }
+  .item-row .price { width:90px; }
+  .item-row .amount { width:95px; background:#F7C7D3; padding:7px; border-radius:4px; text-align:right; }
+  .buttons { margin-top:12px; display:flex; gap:8px; }
+  button { cursor:pointer; border:0; padding:10px 12px; border-radius:6px; font-weight:600; }
+  .btn-add { background:transparent; border:1px dashed var(--brand); }
+  .btn-done { background:var(--brand); color:#fff; flex:1; }
+  .btn-print { background:#9F2C2C; color:#fff; flex:1; }
+  #download-status { font-size:12px; color:#555; margin-top:6px; padding:8px; background:#fff; border-radius:4px; }
+  .small { font-size:12px; color:var(--muted); margin-top:8px; }
+  .preview-wrap { flex:1; display:flex; justify-content:center; align-items:flex-start; padding-bottom:40px; box-sizing:border-box; }
+  .receipt { width:794px; background:#fff; box-shadow:0 4px 20px rgba(0,0,0,.08); padding:36px 46px; box-sizing:border-box; position:relative; color:#9F2C2C; }
+  .header { display:flex; gap:12px; align-items:center; }
+  .seal { width:120px; height:auto; flex-shrink:0; }
+  .company { flex:1; display:flex; flex-direction:column; gap:4px; }
+  .company h1 { margin:0; font-size:20px; letter-spacing:1px; color:var(--brand); }
+  .company p { margin:0; font-size:12px; color:#9F2C2C; }
+  .meta { border:1px solid #D394A6; padding:8px; width:260px; font-size:12px; color:#9F2C2C; border-radius:3px; }
+  .meta div { display:flex; justify-content:space-between; }
+  table.items { width:100%; border-collapse:collapse; margin-top:18px; font-size:13px; }
+  table.items th { background:var(--brand); color:#fff; padding:10px; text-align:left; }
+  table.items td { padding:10px; border:1px solid #e6eefc; vertical-align:top; }
+  table.items td.center { text-align:center; }
+  table.totals { width:95%; margin-left:auto; margin-top:8px; font-size:13px; border-collapse:collapse; }
+  table.totals td { padding:6px; border:none; }
+  .align-amount {text-align: right; padding-right: 10px; position: relative; right: 0;}
+  .note { position:absolute; right:46px; bottom:78px; width:260px; font-size:15px; color:#9F2C2C; text-align:left; border-left:3px solid #b96767; padding-left:8px; }
+  .validated { margin-top:18px; font-size:13px; color:#9F2C2C; }
+  .validated strong { display:block; font-size:13px; }
+  .write-line { border-bottom:1px solid #9F2C2C; display:inline-block; min-width:160px; padding-bottom:3px;  box-shadow: none; }
+  .barcode-note { font-size:11px; color:#9F2C2C; text-align:center; margin-top:4px; }
+  .mobile-toggle { display:none; margin-top:12px; width:100%; padding:10px; border-radius:6px; background:var(--dark); color:#fff; border:none; font-weight:700; cursor:pointer; }
+  
+  .config-section { margin-top:20px; padding:12px; background:#fff; border-radius:6px; border:2px solid var(--brand); }
+  .config-section h3 { margin:0 0 8px 0; color:var(--brand); font-size:14px; }
+  .config-section input { margin-top:4px; }
+
+  @media (max-width: 767px) {
+    .wrap { display:block; padding:12px; }
+    .ui { width:100%; height:auto; max-height:none; }
+    .preview-wrap { display:none; }
+    .mobile-toggle { display:block; }
+    .receipt { width:100%; box-shadow:none; padding:18px; }
+    table.items, table.totals { font-size:12px; display:block; overflow:auto; width:100%; }
+    .write-line { min-width:120px; }
+  }
+
+  @media print {
+    body { background: #fff; margin: 0; padding: 0; overflow: hidden; }
+    .wrap { padding: 0; display: block; }
+    .ui { display: none; }
+    .preview-wrap { display: block; padding: 0; }
+    .receipt { box-shadow: none; margin: 0 auto; width: 210mm; height: 297mm; padding: 15mm; page-break-after: avoid; page-break-before: avoid; page-break-inside: avoid; overflow: hidden; }
+    @page { size: A4; margin: 10mm; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="ui" id="ui">
+    <h2>Receipt Encoder</h2>
+
+    <div class="config-section">
+      <h3>⚙️ Google Sheets Setup</h3>
+      <label>Google Apps Script URL</label>
+      <input id="sheets-url" type="text" placeholder="Paste your web app URL here" />
+      <div style="font-size:11px; color:#666; margin-top:4px;">Get this from your Google Apps Script deployment</div>
+    </div>
+
+    <label>Name</label>
+    <input id="input-name" type="text" placeholder="e.g. Juan Dela Cruz">
+
+    <label>Grade and Section</label>
+    <input id="input-grade" type="text" placeholder="e.g. 11-Hurtado">
+
+    <label>Email</label>
+    <input id="input-email" type="text" placeholder="student@addu.edu.ph">
+
+    <label>Payment Type</label>
+    <select id="input-payment">
+      <option>Cash</option><option>GCash</option><option>Bank Transfer</option>
+    </select>
+
+    <label>Invoice No.</label>
+    <div style="display:flex; gap:8px;">
+      <input id="input-invoice" type="text" placeholder="e.g. INV-2025-001" />
+      <button id="btn-gen-invoice" style="flex:0 0 160px; background:var(--dark); color:#fff; border-radius:6px;">Generate Invoice No.</button>
+    </div>
+
+    <label>Date of Recording</label>
+    <input id="input-date" type="date">
+
+    <div class="items">
+      <label>Items (Description • Qty • Price)</label>
+      <div id="items-container">
+        <div class="item-row">
+          <input class="desc" placeholder="Description">
+          <input class="qty" type="number" min="0" value="1">
+          <input class="price" type="number" min="0" step="0.01" value="0.00">
+          <div class="amount">₱0.00</div>
+        </div>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <button class="btn-add" id="add-item">+ Add Item</button>
+      </div>
+    </div>
+
+    <div class="small">Subtotal and total are calculated automatically.</div>
+
+    <div class="buttons">
+      <button class="btn-done" id="btn-done">Done (Fill & Send to Sheets)</button>
+      <button class="btn-print" id="btn-print" style="display:none">Print Receipt</button>
+    </div>
+
+    <div id="download-status" style="display:none;"></div>
+
+    <button id="mobile-toggle-btn" class="mobile-toggle">🔄 Show Receipt Preview</button>
+  </div>
+
+  <div class="preview-wrap" id="preview-wrap">
+    <div class="receipt" id="receipt">
+      <div class="header">
+        <img class="seal" src="seal.png" alt="Ateneo Seal" />
+        <div class="company">
+          <h1>PAG-IBIG NAGA ALIMBUKAD</h1>
+          <p>K.M.7 McArthur Highway, Talomo Davao City, Philippines, 8000</p>
+        </div>
+        <div style="display:flex;flex-direction:column; align-items:flex-end;">
+          <div class="meta">
+            <div><span>Invoice No.</span><strong id="r-invoice">____________</strong></div>
+            <div style="margin-top:6px"><span>Date of Recording</span><strong id="r-date">____________</strong></div>
+          </div>
+
+          <svg id="barcode" class="knight" style="margin-top:10px"></svg>
+          <div class="barcode-note">Verified by Pag-Ibing Naga Alimbukad Finance Officers</div>
+        </div>
+      </div>
+
+      <table class="items" id="items-table">
+        <thead>
+          <tr><th>QTY</th><th>DESCRIPTION</th><th>PRICE</th><th>AMOUNT</th></tr>
+        </thead>
+        <tbody id="items-body"></tbody>
+      </table>
+
+      <table class="totals" style="width:100%; border-collapse:collapse; margin-top:8px; font-size:13px;">
+        <tr><td></td><td></td><td style="text-align:right; padding-right:16px;">SUBTOTAL:</td><td id="r-subtotal" class="align-amount">₱0.00</td></tr>
+        <tr><td></td><td></td><td style="text-align:right; padding-right:16px; font-weight:700">TOTAL:</td><td id="r-total" class="align-amount" style="font-weight:700;">₱0.00</td></tr>
+      </table>
+      
+      <div class="note"><small>Note: Once an invoice is created, the purchase is final and non-refundable. Please review details before payment.</small></div>
+
+      <div class="validated">
+        <div><strong>Validated By:</strong></div>
+        <div style="margin-top:20px; position:relative; top:-25px;">
+          <img id="sig-brent" src="sig_baguio.png" style="height:100px; margin-bottom:1px; position:absolute; top:-25px;" alt="sig_baguio"><br>
+          <span id="name-brent" style="position:relative; top:0px;">Lead Gabrielle Buaya</span><br>
+          <span id="role-brent">Finance Officer, Pag-Ibing Naga Alimbukad</span>
+        </div>
+        <div style="position:relative; top:-100px;">
+          <img id="sig-lead" src="sig_buaya.png" style="height:120px; position:relative; top:50px; z-index:0;" alt="sig_buaya">
+          <span id="name-lead" style="position:relative; top:0px; left:-87px; z-index:2;">Michael Johann Solis</span><br>
+          <span id="role-lead">Assistant Finance Officer, Pag-Ibing Naga Alimbukad</span>
+        </div>
+      </div>
+
+      <div style="position:absolute; left:46px; bottom:46px; font-size:13px; color:#9F2C2C;">
+        <div>Payment Made By: <span class="write-line" id="r-name"></span></div>
+        <div style="margin-top:6px">Grade and Section: <span class="write-line" id="r-grade"></span></div>
+        <div style="margin-top:6px">Email: <span class="write-line" id="r-email"></span></div>
+        <div style="margin-top:6px">Payment Type: <span class="write-line" id="r-payment"></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+
+<script>
+function currency(v){ return '₱' + Number(v||0).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2}); }
+
+// Load saved Google Sheets URL from localStorage
+const savedUrl = localStorage.getItem('sheets_url');
+if(savedUrl) document.getElementById('sheets-url').value = savedUrl;
+
+// Save URL when changed
+document.getElementById('sheets-url').addEventListener('change', (e)=>{
+  localStorage.setItem('sheets_url', e.target.value);
+});
+
+/* Invoice generator */
+function todayYMD(){
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}${m}${day}`;
+}
+function getCounterForDate(dateStr){
+  const key = `abb_invoice_counter_${dateStr}`;
+  const raw = localStorage.getItem(key);
+  return raw ? Number(raw) : 0;
+}
+function setCounterForDate(dateStr, n){
+  const key = `abb_invoice_counter_${dateStr}`;
+  localStorage.setItem(key, String(n));
+}
+function nextInvoiceNumber(){
+  const d = todayYMD();
+  let counter = getCounterForDate(d);
+  counter = counter + 1;
+  setCounterForDate(d, counter);
+  const seq = String(counter).padStart(4,'0');
+  return `INV-${d}-${seq}`;
+}
+
+/* Build item row */
+function buildItemRow(desc='', qty=1, price=0){
+  const tr = document.createElement('div');
+  tr.className = 'item-row';
+  tr.innerHTML = `<input class="desc" placeholder="Description" value="${desc}">
+                  <input class="qty" type="number" min="0" value="${qty}">
+                  <input class="price" type="number" min="0" step="0.01" value="${price}">
+                  <div class="amount">${currency(qty*price)}</div>`;
+  const qtyEl = tr.querySelector('.qty'), priceEl = tr.querySelector('.price'), amtEl = tr.querySelector('.amount');
+  function recalc(){ amtEl.textContent = currency(Number(qtyEl.value||0) * Number(priceEl.value||0)); }
+  qtyEl.addEventListener('input', recalc);
+  priceEl.addEventListener('input', recalc);
+  return tr;
+}
+
+const itemsContainer = document.getElementById('items-container');
+document.getElementById('add-item').addEventListener('click', ()=> itemsContainer.appendChild(buildItemRow()));
+
+document.getElementById('btn-gen-invoice').addEventListener('click', ()=>{
+  const existing = document.getElementById('input-invoice').value.trim();
+  if(existing && !confirm('Invoice field already has a value. Overwrite?')) return;
+  const inv = nextInvoiceNumber();
+  document.getElementById('input-invoice').value = inv;
+});
+
+/* Send to Google Sheets */
+async function sendToGoogleSheets(data){
+  const sheetsUrl = document.getElementById('sheets-url').value.trim();
+  if(!sheetsUrl){
+    alert('⚠️ Please enter your Google Apps Script URL first!');
+    return false;
+  }
+
+  try {
+    const response = await fetch(sheetsUrl, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data)
+    });
+    
+    // Note: no-cors means we can't read the response, but the request will go through
+    return true;
+  } catch(error) {
+    console.error('Error sending to sheets:', error);
+    return false;
+  }
+}
+
+/* Fill receipt preview and send to sheets */
+document.getElementById('btn-done').addEventListener('click', async function(){
+  if(!document.getElementById('input-invoice').value.trim()){
+    document.getElementById('input-invoice').value = nextInvoiceNumber();
+  }
+
+  const name = document.getElementById('input-name').value || '';
+  const grade = document.getElementById('input-grade').value || '';
+  const email = document.getElementById('input-email').value || '';
+  const payment = document.getElementById('input-payment').value || '';
+  const invoice = document.getElementById('input-invoice').value || '';
+  const date = document.getElementById('input-date').value || '';
+
+  // Fill preview fields
+  document.getElementById('r-name').textContent = name || '';
+  document.getElementById('r-grade').textContent = grade || '';
+  document.getElementById('r-email').textContent = email || '';
+  document.getElementById('r-payment').textContent = payment || '';
+  document.getElementById('r-invoice').textContent = invoice || '';
+  document.getElementById('r-date').textContent = date || '';
+
+  // Generate barcode
+  if(invoice) {
+    try{
+      JsBarcode("#barcode", invoice, { format:"CODE128", lineColor:"#9F2C2C", width:1.6, height:40, displayValue:true, fontSize:12 });
+    }catch(e){
+      document.getElementById('barcode').innerHTML = '';
+    }
+  } else {
+    document.getElementById('barcode').innerHTML = '';
+  }
+
+  // Fill items table and collect items data
+  const rows = itemsContainer.querySelectorAll('.item-row');
+  const body = document.getElementById('items-body');
+  body.innerHTML = '';
+  let subtotal = 0;
+  const items = [];
+  
+  rows.forEach(r=>{
+    const desc = r.querySelector('.desc').value || '';
+    const qty = Number(r.querySelector('.qty').value || 0);
+    const price = Number(r.querySelector('.price').value || 0);
+    const amt = qty * price;
+    subtotal += amt;
+    
+    // Add to receipt preview
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class='center'>${qty}</td><td>${desc}</td><td style='text-align:right'>${currency(price)}</td><td style='text-align:right;font-weight:600'>${currency(amt)}</td>`;
+    body.appendChild(tr);
+    
+    // Collect item data for Google Sheets (only if has description)
+    if(desc.trim() !== '') {
+      items.push({
+        description: desc,
+        quantity: qty,
+        price: price,
+        amount: amt
+      });
+    }
+  });
+
+  document.getElementById('r-subtotal').textContent = currency(subtotal);
+  document.getElementById('r-total').textContent = currency(subtotal);
+
+  // Send to Google Sheets
+  const statusDiv = document.getElementById('download-status');
+  statusDiv.style.display = 'block';
+  statusDiv.textContent = '📤 Sending to Google Sheets...';
+  statusDiv.style.background = '#FFF3CD';
+  statusDiv.style.color = '#856404';
+
+  const data = {
+    invoice: invoice,
+    name: name,
+    grade: grade,
+    email: email,
+    payment: payment,
+    date: date,
+    items: items,
+    subtotal: subtotal,
+    total: subtotal
+  };
+
+  // Debug logging
+  console.log('=== SENDING DATA TO GOOGLE SHEETS ===');
+  console.log('Full data:', JSON.stringify(data, null, 2));
+  console.log('Items count:', items.length);
+
+  const success = await sendToGoogleSheets(data);
+  
+  if(success){
+    statusDiv.textContent = `✅ Successfully sent to Google Sheets! (${items.length} item${items.length !== 1 ? 's' : ''})`;
+    statusDiv.style.background = '#D4EDDA';
+    statusDiv.style.color = '#155724';
+  } else {
+    statusDiv.textContent = '⚠️ Sent to Google Sheets (check your sheet to confirm)';
+    statusDiv.style.background = '#D4EDDA';
+    statusDiv.style.color = '#155724';
+  }
+
+  document.getElementById('btn-print').style.display = 'inline-block';
+});
+
+/* Print button */
+document.getElementById('btn-print').addEventListener('click', ()=>{
+  window.print();
+});
+
+/* Mobile toggle */
+const mobileToggleBtn = document.getElementById('mobile-toggle-btn');
+const previewWrap = document.getElementById('preview-wrap');
+mobileToggleBtn && mobileToggleBtn.addEventListener('click', ()=>{
+  if(previewWrap.style.display === 'block' || previewWrap.style.display === '') {
+    previewWrap.style.display = 'none';
+    mobileToggleBtn.textContent = '🔄 Show Receipt Preview';
+  } else {
+    previewWrap.style.display = 'block';
+    mobileToggleBtn.textContent = '🔄 Hide Receipt Preview';
+  }
+});
+</script>
+</body>
+</html>
